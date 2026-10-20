@@ -4,9 +4,16 @@
 # (DB ahead of the system), the state in which `pacman -S <packages>` (without
 # -y) can cause a partial upgrade. Heuristic, offline, read-only.
 # Usage: pacheck <packages...>
+#        pacheck --uninstall
 # Exit codes: 0 = no desync detected, 1 = update the system first, 2 = pacman error.
 
-(( $# )) || { echo "usage: pacheck <packages...>" >&2; exit 2; }
+(( $# )) || { echo "usage: pacheck <packages...> | --uninstall" >&2; exit 2; }
+
+# Removes this very file (or the link, never its target), so no clone is needed.
+if [[ $1 == --uninstall ]]; then
+  rm -- "$0" && echo "removed $0"
+  exit
+fi
 
 # Omarchy blocks a direct `pacman -Syu`: its update guard wants `omarchy update`.
 if command -v omarchy-update &>/dev/null; then

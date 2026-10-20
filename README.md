@@ -22,6 +22,16 @@ Copies the script to `~/.local/bin/pacheck`, independent of the clone (run it
 again to update). `--link` symlinks it instead, `--uninstall` removes it, and it
 never overwrites a file that is not pacheck.
 
+## Uninstall
+
+```
+pacheck --uninstall
+```
+
+Removes the installed `pacheck` (the link, if it was installed with `--link`,
+never the clone). It needs no clone; `./install.sh --uninstall` from the clone
+does the same.
+
 ## Usage
 
 ```
