@@ -1,0 +1,52 @@
+#!/bin/bash
+
+# Detects a desync between the local pacman sync DB and the installed system
+# (DB ahead of the system), the state in which `pacman -S <packages>` (without
+# -y) can cause a partial upgrade. Heuristic, offline, read-only.
+# Usage: pacheck <packages...>
+# Exit codes: 0 = no desync detected, 1 = update the system first, 2 = pacman error.
+
+(( $# )) || { echo "usage: pacheck <packages...>" >&2; exit 2; }
+
+# Omarchy blocks a direct `pacman -Syu`: its update guard wants `omarchy update`.
+if command -v omarchy-update &>/dev/null; then
+  update_cmd="omarchy update"
+else
+  update_cmd="sudo pacman -Syu"
+fi
+
+# --print simulates the transaction on the local sync DB: no root, no changes.
+plan=$(pacman -S --needed --print --print-format '%n' -- "$@") || exit 2
+
+new=0
+upgrades=()
+while read -r p; do
+  [[ -n $p ]] || continue
+  if pacman -Qq -- "$p" &>/dev/null; then
+    upgrades+=("$p")
+  else
+    ((++new))
+  fi
+done <<<"$plan"
+
+# Upgrades already pending in the local DB mean the DB is newer than the system,
+# so new packages may be built against libraries newer than the installed ones.
+pending=$(pacman -Qu | wc -l)
+
+if (( ${#upgrades[@]} )); then
+  printf 'UPGRADE: %s\n' "${upgrades[@]}"
+  echo "-> installing would upgrade packages you already have: update the system first ($update_cmd)"
+  exit 1
+fi
+
+if (( pending )); then
+  echo "WARNING: $pending pending upgrades in the local DB (system is behind the DB)"
+  echo "-> $new new packages, but update the system first ($update_cmd)"
+  exit 1
+fi
+
+if (( new )); then
+  echo "OK: $new new packages, no upgrades -> sudo pacman -S ${*}"
+else
+  echo "OK: nothing to install"
+fi
